@@ -19,22 +19,38 @@ const CHANNEL_SECRET = process.env.LINE_CHANNEL_SECRET || "";
 const CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN || "";
 
 // 初始化 Firebase Admin
+// 初始化 Firebase Admin
 function getFirebaseAdmin() {
     if (getApps().length === 0) {
         // 使用環境變數中的 service account
-        const serviceAccountStr = process.env.FIREBASE_ADMIN_KEY;
+        let serviceAccountStr = process.env.FIREBASE_ADMIN_KEY;
+
         if (serviceAccountStr) {
             try {
+                // 嘗試處理 Base64 編碼的情況 (如果不是以 { 開頭)
+                if (!serviceAccountStr.trim().startsWith("{")) {
+                    try {
+                        serviceAccountStr = Buffer.from(serviceAccountStr, 'base64').toString('utf-8');
+                    } catch (e) {
+                        console.warn("Failed to decode Base64 key, falling back to raw string");
+                    }
+                }
+
                 const serviceAccount = JSON.parse(serviceAccountStr);
                 initializeApp({
                     credential: cert(serviceAccount),
                     projectId: serviceAccount.project_id,
                 });
+                console.log("Firebase Admin initialized successfully");
             } catch (error) {
                 console.error("Firebase Admin init error:", error);
+                // Print partial key for debugging (safe)
+                const safeKey = serviceAccountStr ? `${serviceAccountStr.substring(0, 10)}...${serviceAccountStr.substring(serviceAccountStr.length - 10)}` : "empty";
+                console.error(`Key preview: ${safeKey}`);
                 throw new Error("Failed to initialize Firebase Admin SDK");
             }
         } else {
+            console.error("FIREBASE_ADMIN_KEY is missing");
             throw new Error("FIREBASE_ADMIN_KEY environment variable is not set");
         }
     }
