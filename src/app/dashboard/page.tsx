@@ -36,7 +36,7 @@ export default function DashboardPage() {
 
     // 載入監控設定
     useEffect(() => {
-        if (!user) return;
+        if (!user || !userData) return;
 
         const loadMonitors = async () => {
             const q = query(
@@ -44,11 +44,29 @@ export default function DashboardPage() {
                 where("userId", "==", user.uid)
             );
             const snapshot = await getDocs(q);
-            const data = snapshot.docs.map((doc) => ({
-                id: doc.id,
-                ...doc.data(),
+            const data = snapshot.docs.map((d) => ({
+                id: d.id,
+                ...d.data(),
             })) as Monitor[];
-            setMonitors(data);
+
+            // 如果是新用戶且沒有監控，自動建立一個
+            if (data.length === 0) {
+                const newMonitor = {
+                    userId: user.uid,
+                    type: "sale" as const,
+                    city: "",
+                    districts: [],
+                    regions: [],
+                    priceMin: 0,
+                    priceMax: 0,
+                    isActive: true,
+                    createdAt: new Date(),
+                };
+                const docRef = await addDoc(collection(db, "monitors"), newMonitor);
+                setMonitors([{ id: docRef.id, ...newMonitor }]);
+            } else {
+                setMonitors(data);
+            }
         };
 
         loadMonitors();
@@ -217,12 +235,26 @@ export default function DashboardPage() {
                     {/* 監控列表 */}
                     <div className="flex justify-between items-center mb-4">
                         <h2 className="text-xl font-semibold">監控設定</h2>
-                        <button
-                            onClick={addMonitor}
-                            className="px-4 py-2 bg-emerald-600 rounded hover:bg-emerald-700"
-                        >
-                            + 新增監控
-                        </button>
+                        <div className="flex items-center gap-3">
+                            <span className="text-sm text-gray-400">
+                                {monitors.length} / {userData?.maxRegions || 1} 個監控
+                            </span>
+                            {monitors.length < (userData?.maxRegions || 1) ? (
+                                <button
+                                    onClick={addMonitor}
+                                    className="px-4 py-2 bg-emerald-600 rounded hover:bg-emerald-700"
+                                >
+                                    + 新增監控
+                                </button>
+                            ) : (
+                                <a
+                                    href="/pricing"
+                                    className="px-4 py-2 bg-amber-600 rounded hover:bg-amber-700 text-sm"
+                                >
+                                    升級方案增加監控數
+                                </a>
+                            )}
+                        </div>
                     </div>
 
                     <div className="space-y-4">
