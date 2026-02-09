@@ -13,34 +13,21 @@ import {
     doc,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-
-// Taiwan regions
-const REGIONS = [
-    "台北市",
-    "新北市",
-    "桃園市",
-    "新竹市",
-    "新竹縣",
-    "台中市",
-    "台南市",
-    "高雄市",
-    "基隆市",
-    "宜蘭縣",
-    "花蓮縣",
-    "台東縣",
-];
+import { TAIWAN_REGIONS, getDistricts, getCityNames } from "@/lib/regions";
 
 interface Monitor {
     id: string;
     type: "rent" | "sale";
-    regions: string[];
+    city: string;           // 選擇的縣市
+    districts: string[];    // 選擇的區域
+    regions: string[];      // 向下相容舊格式
     priceMin: number;
     priceMax: number;
     isActive: boolean;
 }
 
 // LINE 官方帳號 ID（部署時替換）
-const LINE_OA_ID = "@591monitor";
+const LINE_OA_ID = "@860fqqyt";
 
 export default function DashboardPage() {
     const { user, userData, signOut } = useAuth();
@@ -81,6 +68,8 @@ export default function DashboardPage() {
         const newMonitor = {
             userId: user.uid,
             type: "sale" as const,
+            city: "",
+            districts: [],
             regions: [],
             priceMin: 0,
             priceMax: 0,
@@ -282,31 +271,70 @@ export default function DashboardPage() {
                                     </button>
                                 </div>
 
-                                {/* 區域選擇 */}
+                                {/* 縣市選擇 */}
                                 <div className="mb-4">
                                     <label className="block text-sm text-gray-400 mb-2">
-                                        監控區域
+                                        選擇縣市
                                     </label>
                                     <div className="flex flex-wrap gap-2">
-                                        {REGIONS.map((region) => (
+                                        {getCityNames().map((city) => (
                                             <button
-                                                key={region}
+                                                key={city}
                                                 onClick={() => {
-                                                    const newRegions = monitor.regions.includes(region)
-                                                        ? monitor.regions.filter((r) => r !== region)
-                                                        : [...monitor.regions, region];
-                                                    updateMonitor(monitor.id, { regions: newRegions });
+                                                    updateMonitor(monitor.id, {
+                                                        city: city,
+                                                        districts: [],
+                                                        regions: [city]
+                                                    });
                                                 }}
-                                                className={`px-3 py-1 rounded text-sm ${monitor.regions.includes(region)
+                                                className={`px-3 py-1 rounded text-sm ${monitor.city === city
                                                     ? "bg-emerald-600"
                                                     : "bg-gray-700 hover:bg-gray-600"
                                                     }`}
                                             >
-                                                {region}
+                                                {city}
                                             </button>
                                         ))}
                                     </div>
                                 </div>
+
+                                {/* 區域選擇（選擇縣市後顯示） */}
+                                {monitor.city && (
+                                    <div className="mb-4">
+                                        <label className="block text-sm text-gray-400 mb-2">
+                                            選擇區域（可複選，不選代表全區）
+                                        </label>
+                                        <div className="flex flex-wrap gap-2">
+                                            {getDistricts(monitor.city).map((district) => (
+                                                <button
+                                                    key={district}
+                                                    onClick={() => {
+                                                        const newDistricts = (monitor.districts || []).includes(district)
+                                                            ? monitor.districts.filter((d) => d !== district)
+                                                            : [...(monitor.districts || []), district];
+                                                        updateMonitor(monitor.id, {
+                                                            districts: newDistricts,
+                                                            regions: newDistricts.length > 0
+                                                                ? newDistricts.map(d => `${monitor.city}${d}`)
+                                                                : [monitor.city]
+                                                        });
+                                                    }}
+                                                    className={`px-3 py-1 rounded text-sm ${(monitor.districts || []).includes(district)
+                                                        ? "bg-blue-600"
+                                                        : "bg-gray-700 hover:bg-gray-600"
+                                                        }`}
+                                                >
+                                                    {district}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        {(monitor.districts || []).length > 0 && (
+                                            <p className="mt-2 text-sm text-blue-400">
+                                                已選擇：{monitor.districts.join("、")}
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
 
                                 {/* 價格區間 */}
                                 <div className="grid grid-cols-2 gap-4">
