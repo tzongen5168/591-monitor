@@ -22,18 +22,20 @@ const CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN || "";
 function getFirebaseAdmin() {
     if (getApps().length === 0) {
         // 使用環境變數中的 service account
-        const serviceAccount = process.env.FIREBASE_ADMIN_KEY;
-        if (serviceAccount) {
+        const serviceAccountStr = process.env.FIREBASE_ADMIN_KEY;
+        if (serviceAccountStr) {
             try {
+                const serviceAccount = JSON.parse(serviceAccountStr);
                 initializeApp({
-                    credential: cert(JSON.parse(serviceAccount)),
+                    credential: cert(serviceAccount),
+                    projectId: serviceAccount.project_id,
                 });
-            } catch {
-                // 如果沒有 Admin Key，使用預設憑證
-                initializeApp();
+            } catch (error) {
+                console.error("Firebase Admin init error:", error);
+                throw new Error("Failed to initialize Firebase Admin SDK");
             }
         } else {
-            initializeApp();
+            throw new Error("FIREBASE_ADMIN_KEY environment variable is not set");
         }
     }
     return getFirestore();
